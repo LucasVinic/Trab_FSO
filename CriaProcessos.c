@@ -4,33 +4,28 @@
 #include <unistd.h>
 #include <stdbool.h>
 #include <signal.h>
+#include <string.h>
 
-#define NUM_FILHOS 10
+#define NUM_FILHOS 3
 
-//signal handler dos filhos(o print eh mais pra teste)
-void killSelf(int sig) {
-  int pid = getpid();
-  printf("sou o processo filho, pid = %d,e vou morrer\n",pid);
-  exit(0);
+int children_not_yet_ready = NUM_FILHOS;
+int myPid;
+
+void recieved_ok_to_die(int signum) {
+  write(STDOUT_FILENO, "i did my thing. i can go in peace\n", 35);
+}
+
+void child_is_ready(int signum) {
+  write(STDOUT_FILENO, "one of my children told me they did their thing\n", 49);
+  children_not_yet_ready--;
 }
 
 int main() {
-
-  char okMsg[] = "tudo ok, pai!";
-
   bool isParent = true;
   int pids[NUM_FILHOS]; //lista de pids
-  int parentPid = getpid();
-  // array de pipes para cada filho falar que terminou
-  int pipeFilhoTerminou[NUM_FILHOS][2];
-  for (int i = 0; i < NUM_FILHOS; i++) {
-    if (pipe(pipeFilhoTerminou[i]) == -1) {
-      printf("error when creating pipe\n");
-      exit(-1);
-    }
-    printf("pipe %d: read: %d write: %d\n", i, pipeFilhoTerminou[i][0], pipeFilhoTerminou[i][1]);
-  }
+  int parentPid = myPid = getpid();
 
+  // fork processes
   for (int i = 0; i < NUM_FILHOS; i++) {
     int temp = fork();
     if (temp == 0) {
@@ -41,80 +36,53 @@ int main() {
     }
   }
 
+  // setup signal callbacks
+  signal(SIGUSR1, child_is_ready);
+  signal(SIGUSR2, recieved_ok_to_die);
+
   // só executa esse código se é filho
   if (!isParent) {
-    int myPid = getpid();
-    int myIndex;
-    // close all pipes this child isn't going to use
-    for (int i = 0; i < NUM_FILHOS; i++) {
-      // if it's another child's pipe
-      if (myPid != pids[i]) {
-        close(pipeFilhoTerminou[i][0]);
-        close(pipeFilhoTerminou[i][1]);
-      // if it's the child's pipe, close the read, keep the write open
-      } else {
-        myIndex = i;
-        close(pipeFilhoTerminou[i][1]);
-      }
-    }
+    myPid = getpid();
+    printf("hi, i'm process %d and i did my thing\n.", myPid);
 
+    // tell parent i did my thing
+    kill(parentPid, SIGUSR1);
 
+    // wait untill i have the ok to die
+    pause();
 
-    printf("hi, im #%d. and i'm sending '%s' to my daddy\n", myIndex, okMsg);
-    write(pipeFilhoTerminou[myIndex][0], okMsg, strlen(okMsg)+1);
-    close(pipeFilhoTerminou[myIndex][0]);
-
-
-
-    // int pid = getpid();
-    // // printar
-    // // printf("sou o processo filho, pid = %d. meu pai eh %d\n", pid, parentPid);
-    // // espera o ok do pai pra morrer:
-    // while (1) {
-    //   sleep(1);
-    //   signal(SIGUSR1, killSelf);
-    // }
-    // exit(1);
+    // die
+    exit(0);
   }
 
   // só executa esse código se é pai
   if (isParent) {
 
-    // close all write pipes
-    for (int i = 0; i < NUM_FILHOS; i++) {
-      close(pipeFilhoTerminou[i][0]);
+    // wait for all children to run and give the ok signal
+    while (children_not_yet_ready > 0) {
+      // printf("i have %d children not yet ready\n", children_not_yet_ready);
+      pause();
     }
 
-    // read message from all children
+    printf("i'm the parent, and all of my children did their things.\n");
+
+    // send all children the ok to die
     for (int i = 0; i < NUM_FILHOS; i++) {
-      char* messageFromChild;
-      int bytesRead = read(pipeFilhoTerminou[i][1], messageFromChild, sizeof(okMsg));
-      printf("i read stuff from my child #%d. it was %s\n", i, messageFromChild);
+      kill(pids[i], SIGUSR2);
     }
 
-    // close all read pipes
+    printf("now i'll wait until they're all dead before i can go.\n");
+    
+    // wait for all children to stop before exiting
     for (int i = 0; i < NUM_FILHOS; i++) {
-      close(pipeFilhoTerminou[i][1]);
+      int status;
+      // printf("waiting for child #%d of pid %d.\n", i, pids[i]);
+      waitpid(pids[i], &status, 0);
+      // printf("a total of %d of my children have died.\n", i+1);
     }
-
-
-
-
-
-
-    // //sleep(1);
-    // // manda mensagem pra filhos morrerem:
-    // for (int i = 0; i < NUM_FILHOS; i++) {
-    //   // printf("it returns this: %d\n", kill(pids[i],SIGUSR1));
-    //   kill(pids[i],SIGUSR1);
-    // }
-    // // esperar o ok dos 10 filhos (wait n conta creio eu que teremos que mandar msg do filhos pro pai de outra maneira)
-    // for (int i = 0; i < NUM_FILHOS; i++) {
-    //   int num = wait(NULL);
-    //   // printf("waited %d\n",num);
-    // }
 
     // morre
+    printf("all of my children have died, so now i'll end too.\n");
     return 0;
   }
 
