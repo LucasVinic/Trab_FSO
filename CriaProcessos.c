@@ -8,66 +8,56 @@
 #define NUM_FILHOS 10
 
 //signal handler dos filhos(o print eh mais pra teste)
-void killTheChild(int sig){
-    int pid = getpid();
-    printf("sou o processo filho, pid = %d,e vou morrer\n",pid);
-    
-    exit(0);
+void killSelf(int sig) {
+  int pid = getpid();
+  printf("sou o processo filho, pid = %d,e vou morrer\n",pid);
+  exit(0);
 }
+
 int main() {
 
   bool isParent = true;
   int pids[10]; //lista de pids
+  int parentPid = getpid();
 
- 
   for (int i = 0; i < NUM_FILHOS; i++) {
     int temp = fork();
     if (temp == 0) {
-      isParent = false;  
+      isParent = false;
       break;
-    }
-    else{
-        pids[i] = temp;
+    } else {
+      pids[i] = temp;
     }
   }
-   
+
   // só executa esse código se é filho
   if (!isParent) {
     int pid = getpid();
     // printar
-    printf("sou o processo filho, pid = %d\n",pid);
+    printf("sou o processo filho, pid = %d. meu pai eh %d\n", pid, parentPid);
     // espera o ok do pai pra morrer:
-    while(1){
-      sleep(1);  
-      signal(SIGUSR1, killTheChild);
-    }   
-    
+    while (1) {
+      sleep(1);
+      signal(SIGUSR1, killSelf);
+    }
     exit(1);
   }
 
-  
-    
-    
-    // só executa esse código se é pai
-  if(isParent){
+  // só executa esse código se é pai
+  if (isParent) {
     //sleep(1);
     // manda mensagem pra filhos morrerem:
-    for (int i = 0; i < NUM_FILHOS; i++){
-    
-      printf("it returns this: %d",kill(pids[i],SIGUSR1));
-
+    for (int i = 0; i < NUM_FILHOS; i++) {
+      printf("it returns this: %d\n", kill(pids[i],SIGUSR1));
     }
     // esperar o ok dos 10 filhos (wait n conta creio eu que teremos que mandar msg do filhos pro pai de outra maneira)
-    for (int i = 0; i < NUM_FILHOS; i++){
-        int num = wait(NULL);
-        printf("waited %d\n",num);
+    for (int i = 0; i < NUM_FILHOS; i++) {
+      int num = wait(NULL);
+      printf("waited %d\n",num);
     }
-    
+
     // morre
     return 0;
   }
-  
-}  
-    
-    
 
+}
