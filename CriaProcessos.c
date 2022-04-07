@@ -4,88 +4,106 @@
 #include <unistd.h>
 #include <stdbool.h>
 #include <signal.h>
+#include <string.h>
+#include<sys/msg.h>
 
 #define NUM_FILHOS 10
 
-//signal handler dos filhos(o print eh mais pra teste)
-void killTheChild(int sig){
-    int pid = getpid();
-    printf("sou o processo filho, pid = %d, e vou morrer\n", pid);
-    
-    exit(0);
+int children_not_yet_ready = NUM_FILHOS;
+int myPid;
+
+void recieved_ok_to_die(int signum) {
 }
 
+
 int main() {
-
   bool isParent = true;
-  int pids[10]; //lista de pids
-  int ppid = getpid();
+  int pids[NUM_FILHOS]; // lista de pids
+  int parentPid = myPid = getpid();
+  int  idfila;
 
+  struct mensagem
+  {
+    int pid;
+    char msg[30];
+  };
+
+  struct mensagem mensagem_env, mensagem_rec; 
+
+  /* cria */
+  if ((idfila = msgget(0x1223, IPC_CREAT|0x1B6)) < 0)
+  {
+    printf("erro na criacao da fila\n");
+    exit(1);
+  } 
+ 
+ 
+  // setup signal callback
+  signal(SIGUSR2, recieved_ok_to_die);
+
+  // cria 10 processos filhos
   for (int i = 0; i < NUM_FILHOS; i++) {
     int temp = fork();
     if (temp == 0) {
-      isParent = false;  
+      isParent = false;
       break;
-    }
-    else{
-        pids[i] = temp;
+    } else {
+      pids[i] = temp;
     }
   }
-   
+
   // só executa esse código se é filho
   if (!isParent) {
-    int pid = getpid();
-
-    // printar
-    printf("sou o processo filho, pid = %d. Meu pai tem id = %d\n", pid, ppid);
+    myPid = getpid();
+    // imprime
+    printf("sou o processo filho, pid =  %d  \n", myPid);
+    
+    // avisa o pai
+    mensagem_env.pid = myPid;
+    strcpy(mensagem_env.msg, "dad I printed plz kill me \n");
+    msgsnd(idfila, &mensagem_env, sizeof(mensagem_env)-sizeof(long), 0);
 
     
-    // avisa o pai que já imprimiu
-    kill(ppid, SIGUSR1);
 
-    // espera o ok do pai pra morrer:
-    // signal(SIGUSR2, killTheChild);
-    
-    wait(NULL);
+    // espera a notificacao do processo pai
+    pause();
 
-    exit(1);
+    //printf("#%d recieved the ok to go.\n", myPid);
+
+    // termina execucao
+    exit(0);
   }
 
   // só executa esse código se é pai
-  if(isParent){
-
-    /* printf("processo pai tem id de %d\n", ppid);
-    // espera 10 sinais dos filhos
-    signal(SIGUSR1, checkTheChilds);
-    while(1){
-      sleep(0.5);
-      if(counter == 10)
-        break;
-    }
-    printf("O pai recebeu aviso de todos os filhos\n"); */
-
-    // // manda mensagem pra filhos morrerem:
-    // for (int i = 0; i < NUM_FILHOS; i++){
-    //   if (kill(pids[i], SIGUSR2) == 0)
-    //     printf("vou mandar o filho %d fazer a coisa dele\n", pids[i]);
-    //   else
-    //     printf("tentei mandar %d morrer mas não consegui\n", pids[i]);
-    // }
-
-    // esperar o ok dos 10 filhos (wait n conta creio eu que teremos que mandar msg do filhos pro pai de outra maneira)
-    for (int i = 0; i < NUM_FILHOS; i++){
-      int num = wait(NULL);
-      printf("waited %d\n",num);
+  if (isParent) {
+    //espera o aviso dos filhos
+    while (children_not_yet_ready > 0) {
+      msgrcv(idfila, &mensagem_rec, sizeof(mensagem_rec)-sizeof(long), 0, 0);
+      ////printf("mensagem recebida = %d %s\n", mensagem_rec.pid, mensagem_rec.msg);
+      ////printf("i have %d children not yet ready\n", children_not_yet_ready);
+      children_not_yet_ready--;
+      
     }
 
+    ////printf("i'm the parent, and all of my children did their things.\n");
+
+    // send all children the ok to die
     for (int i = 0; i < NUM_FILHOS; i++) {
       kill(pids[i], SIGUSR2);
     }
 
+    ////printf("now i'll wait until they're all dead before i can go.\n");
+    
+    // esperando filhos avisarem seus terminos
+    for (int i = 0; i < NUM_FILHOS; i++) {
+      int status;
+      waitpid(pids[i], &status, 0);
+      
+    }
+
     // morre
+    ////printf("all of my children have died, so now i'll end too.\n");
     return 0;
   }
-}  
-    
-    
 
+}
