@@ -9,10 +9,10 @@
 #include <time.h>
 
 #define NUM_FILHOS 5
-#define NUM_GRANDE 5000000000
+#define NUM_GRANDE 50000000000
                  //50000000000
-#define RAND_CEILING 10
-#define RAND_FLOOR 2
+#define RAND_CEILING 0
+#define RAND_FLOOR 0
 
 int main () {
   time_t start_t, end_t;
@@ -26,7 +26,7 @@ int main () {
     tempo = rand() % (RAND_CEILING - RAND_FLOOR + 1) + RAND_FLOOR;
     int temp = fork();
     time(&start_t);
-    //print("start t de pid: %d = a %ld",temp,start_t);
+   
     if (temp == 0) {
       isParent = false;
       break;
@@ -42,13 +42,12 @@ int main () {
     sleep(tempo);
 
     myPid = getpid();
-    for(int j = 0; j < NUM_GRANDE; j++); /* {
-      if(j % 25000000 == 0) printf("foi uma vez\n");
-    } */
+    for(long long j = 0; j < NUM_GRANDE; j++);
     printf("meu pid é %d\n", myPid);
 
     time(&end_t);
-    //print("end t de pid: %d = a %ld",myPid,end_t);
+    
+    
     double turnaround_time = difftime(end_t, start_t);
     printf("[%d] turnaround time: %lf\n", myPid, turnaround_time);
     exit(0);
