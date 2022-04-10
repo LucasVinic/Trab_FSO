@@ -5,7 +5,7 @@
 #include <stdbool.h>
 #include <signal.h>
 #include <string.h>
-#include<sys/msg.h>
+#include <sys/msg.h>
 
 #define NUM_FILHOS 10
 
