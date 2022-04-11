@@ -1,3 +1,5 @@
+// Mateus de Paula Rodrigues 190017953
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/wait.h>
@@ -10,10 +12,10 @@
 #include <errno.h>
 
 #define NUM_FILHOS 5
-#define NUM_GRANDE 500000000
+#define NUM_GRANDE 50000000000
                  //50000000000
-#define RAND_CEILING 10
-#define RAND_FLOOR 2
+#define RAND_CEILING 180
+#define RAND_FLOOR 60
 
 int main () {
   time_t start_t, end_t;
