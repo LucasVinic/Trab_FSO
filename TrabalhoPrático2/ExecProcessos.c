@@ -1,4 +1,12 @@
-// Mateus de Paula Rodrigues 190017953
+/*
+* TRABALHO 2 DE FSO - 04/2022
+*
+* AUTORES:
+*   19/0017953 - Mateus de Paula Rodrigue
+*   17/0061001 - Lucas Vinicius Magalhães Pinheiro
+*   17/0043959 - Rafael Gonçalves de Paulo
+*   16/0128331 - José Fortes Neto
+*/
 
 #include <stdio.h>
 #include <stdlib.h>
